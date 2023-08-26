@@ -24,12 +24,15 @@ contract Staking {
     // Enum to define different staking plans
     enum Plan { None, Bronze, Silver, Gold, Platinum, Diamond }
 
+    uint256 public totalStaked;
+
     // Struct to store user staking information
     struct User {
         uint256 stakedAmount; // Amount of tokens staked
         uint256 stakingEndTime; // Time when staking ends
         uint256 teamSize; // Size of the staking team
         Plan plan; // Chosen staking plan
+        
     }
 
     // Struct to store subscription details
@@ -84,11 +87,11 @@ contract Staking {
  * @param userAddress The address of the user for whom the total staked amount is calculated.
  * @return The total staked amount in tokens.
  */
-function TotalTokenStaked(address userAddress) public view returns (uint256) {
-    uint256 totalStaked = 0;
+function TotalTokenStaked(address userAddress) public returns (uint256) {
+    
     for (uint256 id = 1; id <= userCount[userAddress]; id++) {
         User memory user = users[userAddress][id];
-        totalStaked += user.stakedAmount;
+        totalStaked += user.stakedAmount * 1 ether;
     }
     return totalStaked;
 }
@@ -107,7 +110,7 @@ function stakeTokens(
     uint256 requiredAmount = amount * 1 ether;
     uint256 stakingDuration = 180;
     Plan plan;
-    uint256 totalStaked = TotalTokenStaked(msg.sender);
+    //uint256 totalStaked = TotalTokenStaked(msg.sender);
     // Calculate the required staking amount based on the total staked
     if (totalStaked <= 10000) {
         plan = Plan.None;
