@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-
+import { ERC20 } from "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/ERC20.sol";
+import "hardhat/console.sol";
 
 /**
  * @title StakingContract
@@ -244,24 +244,24 @@ function isReferred(address _referrer) public view returns (uint256) {
         uint256 amount = _tokenAmount * 1 ether;
 
         if (_referrer == owner && ownerReferred[msg.sender]) {
-           Subscription memory subscription = Subscription(amount, address(0), _tier);
+           Subscription memory subscription = Subscription(amount, _referrer, _tier);
 
             userSubscription[msg.sender] = subscription;
         }
 
-        (uint256 userTier) = isReferred(_referrer);
+        uint256 userTier = isReferred(_referrer);
+        //console.log(userTier);
 
         if (_tier == userTier) {
             require(maxTierReferralCounts[_referrer] <= maxRefferalLimit, "Already referred to maximum users.");
             maxTierReferralCounts[_referrer]++;
-            Subscription memory subscription = Subscription(amount, address(0), _tier);
-            userSubscription[msg.sender] = subscription;
-        } else if (_tier < userTier) {
-            Subscription memory subscription = Subscription(amount, address(0), _tier);
+            Subscription memory subscription = Subscription(amount, _referrer, _tier);
             userSubscription[msg.sender] = subscription;
         } else {
-            revert("Invalid tier for referred user");
-        }
+            Subscription memory subscription = Subscription(amount, _referrer, _tier);
+            userSubscription[msg.sender] = subscription;
+        } 
+        
 
         //1$ fees charge for upgradation
 
