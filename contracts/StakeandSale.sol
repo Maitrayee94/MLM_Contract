@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { ERC20 } from "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/ERC20.sol";
-import "hardhat/console.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /**
  * @title StakingContract
@@ -31,6 +30,7 @@ contract Staking {
     struct User {
         uint256 stakedAmount; // Amount of tokens staked
         uint256 stakingEndTime; // Time when staking ends
+        uint256 StartDate;
         uint256 teamSize; // Size of the staking team
         
     }
@@ -123,10 +123,11 @@ contract Staking {
 
         // Calculate the end time of staking
         uint256 stakingEndTime = block.timestamp + stakingDuration_ * 1 days;
+        uint256 StartDate = block.timestamp;
 
         // Store user staking data
         User memory staking =
-            User({stakedAmount: tokenAmount_, stakingEndTime: stakingEndTime, teamSize: teamSize_});
+            User({stakedAmount: tokenAmount_, stakingEndTime: stakingEndTime,StartDate: StartDate, teamSize: teamSize_});
 
         userStaking[msg.sender].push(staking);
 
@@ -199,13 +200,14 @@ function isReferred(address _referrer) public view returns (uint256) {
         //(uint256 userTier) = isReferred(_referreladdress);
         StakeSubscription memory subscription = stakeSubscription[msg.sender];
         require(subscription.tokenAmount == 0, "User already has a subscription");
-        subscription.tokenAmount = _tokenAmount;
+        uint256 amount = _tokenAmount * 1 ether;
+        subscription.tokenAmount = amount;
 
-        uint256 self_stakeamount = _tokenAmount * 15 / 100;
-        uint256 remaining_tokens = _tokenAmount - self_stakeamount;
+        uint256 self_stakeamount = amount * 15 / 100;
+        uint256 remaining_tokens = amount - self_stakeamount;
 
 
-        stakeTokens(self_stakeamount, 180 , 1);
+        //stakeTokens(self_stakeamount, 180 , 1);
 
         // Assuming you have a "token" contract with a "transfer" function
         token.transferFrom(msg.sender, address(this), remaining_tokens);
@@ -213,7 +215,7 @@ function isReferred(address _referrer) public view returns (uint256) {
         new_referrel = _referreladdress;
         for(uint256 i=0; i< 9; i++){
            address parent_addr = getParent(new_referrel);
-           uint256 reward_amount = RewardPercentage[i] * _tokenAmount / 100;
+           uint256 reward_amount = RewardPercentage[i] * amount / 100;
             token.transferFrom(address(this), parent_addr, reward_amount);
             if(new_referrel == owner){
                 break ;
@@ -268,7 +270,7 @@ function isReferred(address _referrer) public view returns (uint256) {
         uint256 self_stakeamount = amount * 15 / 100;
         uint256 remaing_tokens = amount - self_stakeamount;
 
-        stakeTokens(self_stakeamount, 180 , 0);
+        //stakeTokens(self_stakeamount, 180 , 0);
 
         // Assuming you have a "token" contract with a "transfer" function
         token.transferFrom(msg.sender, address(this), remaing_tokens);
@@ -307,6 +309,25 @@ function isReferred(address _referrer) public view returns (uint256) {
 
         emit UserReferred(_referral, msg.sender);
     }
+
+    function showAllParent(address user) external view returns (address[] memory) {
+        address[] memory parent = new address[](9); // Initialize an array with a fixed size of 9
+        address new_referrel = user;
+
+        for (uint256 i = 0; i < 9; i++) {
+            address parent_addr = getParent(new_referrel);
+            parent[i] = parent_addr;
+
+            if (new_referrel == owner) {
+                break;
+            } else {
+                new_referrel = parent_addr;
+            }
+        }
+
+        return parent;
+    }
+
 
     
 }
