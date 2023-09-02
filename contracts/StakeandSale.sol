@@ -40,12 +40,22 @@ contract Staking {
         uint256 tokenAmount;
         address parent;
         uint256 tier;
+
     }
 
     // Struct to store Stake_subscription details
     struct StakeSubscription {
         uint256 tokenAmount;
         address parent;
+       
+    }
+
+    //Struct to Store Rewards
+    struct Rewards{
+        uint256 totalrewards;
+    }
+    struct User_children{
+        address[] child;
     }
 
     // Mapping to store user data using their address
@@ -56,13 +66,18 @@ contract Staking {
     mapping(address => uint256) public userCount; // Count of stakes per user
 
     // Mapping to store user subscription data using their address
-    mapping(address => Subscription) public userSubscription;
+    mapping(address =>  Subscription) public userSubscription;
 
     // Mapping to store user subscription data using their address
     mapping(address => StakeSubscription) public stakeSubscription;
 
+    mapping(address => Rewards) public userRewards;
+
     // Mapping to track whether an address has been referred by the owner
     mapping(address => bool) public ownerReferred;
+
+    // Mapping to store children for each referrer
+mapping(address => User_children) private referrerToChildren;
 
     // Mapping to track the number of referrals per tier for each referrer
     mapping(address => uint256) public maxTierReferralCounts;
@@ -70,7 +85,7 @@ contract Staking {
     mapping(address => uint256) public rewardAmount;
 
     // Event to log staking action
-    event TokensStaked(address indexed user, uint256 amount, uint256 stakingEndTime);
+    event TokensStaked(address indexed user, uint256 amount, uint256 stakingEndTime, uint256 id);
 
     // Event to log unstaking action
     event TokensUnstaked(address indexed user, uint256 amount);
@@ -102,10 +117,11 @@ contract Staking {
     *@dev Parent Address for a given User
     */
    function getParent(address user) public view returns (address) {
+    
     Subscription memory parent = userSubscription[user];
+   
     return parent.parent;
 }
-
 
     
     /**
@@ -114,9 +130,9 @@ contract Staking {
      * @param stakingDuration_ The duration of staking in days.
      * @param teamSize_ The size of the staking team.
      */
-    function stakeTokens(uint256 tokenAmount_, uint256 stakingDuration_, uint256 teamSize_) public {
+    function stakeTokens(uint256 tokenAmount_, uint256 stakingDuration_, uint256 teamSize_, uint256 id) public {
         
-
+    uint256 requiredAmount = tokenAmount_ * 1 ether;
         // Calculate the required staking amount based on the chosen plan
 
         require(stakingDuration_ == 90 || stakingDuration_ == 180 || stakingDuration_ == 365, "Invalid staking duration");
@@ -125,17 +141,25 @@ contract Staking {
         uint256 stakingEndTime = block.timestamp + stakingDuration_ * 1 days;
         uint256 StartDate = block.timestamp;
 
-        // Store user staking data
-        User memory staking =
-            User({stakedAmount: tokenAmount_, stakingEndTime: stakingEndTime,StartDate: StartDate, teamSize: teamSize_});
+         // Store user staking data
+    users[msg.sender][id] = User({
+    stakedAmount: requiredAmount,
+    stakingEndTime: stakingEndTime,
+    StartDate: StartDate,
+    teamSize: teamSize_  // Corrected field name to match the struct
+});
+    userCount[msg.sender]++;
 
-        userStaking[msg.sender].push(staking);
+    // Update the total staked amount
+    totalStaked += requiredAmount * 1 ether;
+
+       // userStaking[msg.sender].push(staking);
 
         // Transfer tokens to this contract
-        token.transferFrom(msg.sender, address(this), tokenAmount_);
+    token.transferFrom(msg.sender, address(this), requiredAmount);
 
         // Emit staking event
-        emit TokensStaked(msg.sender, tokenAmount_, stakingEndTime);
+    emit TokensStaked(msg.sender, requiredAmount, stakingEndTime, id);
     }
 
     /**
@@ -161,14 +185,16 @@ contract Staking {
         emit TokensUnstaked(msg.sender, stakedAmount);
     }
 
-    function TotalTokenStaked(address userAddress) public returns (uint256) {
-    
-    for (uint256 id = 1; id <= userCount[userAddress]; id++) {
+    function TotalTokenStaked(address userAddress) public view returns (uint256) {
+    uint256 totalStakedByUser = 0;
+
+    for (uint256 id = 101; id <= 100 + userCount[userAddress]; id++) {
         User memory user = users[userAddress][id];
-        totalStaked += user.stakedAmount * 1 ether;
+        totalStakedByUser += user.stakedAmount * 1 ether;
     }
-    return totalStaked;
-    }
+
+    return totalStakedByUser;
+}
 
     /**
      * @dev Check if a user is referred by a given referrer.
@@ -197,11 +223,12 @@ function isReferred(address _referrer) public view returns (uint256) {
      */
     function DirectStakeJoining(address _referreladdress, uint256 _tokenAmount) external {
 
-        //(uint256 userTier) = isReferred(_referreladdress);
-        StakeSubscription memory subscription = stakeSubscription[msg.sender];
-        require(subscription.tokenAmount == 0, "User already has a subscription");
-        uint256 amount = _tokenAmount * 1 ether;
-        subscription.tokenAmount = amount;
+         StakeSubscription memory subscription = stakeSubscription[msg.sender];
+    require(subscription.tokenAmount == 0, "User already has a subscription");
+    uint256 amount = _tokenAmount * 1 ether;
+    subscription.tokenAmount = amount;
+    subscription.parent = _referreladdress; 
+    
 
         uint256 self_stakeamount = amount * 15 / 100;
         uint256 remaining_tokens = amount - self_stakeamount;
@@ -210,19 +237,24 @@ function isReferred(address _referrer) public view returns (uint256) {
         //stakeTokens(self_stakeamount, 180 , 1);
 
         // Assuming you have a "token" contract with a "transfer" function
+        token.approve(address(this), remaining_tokens);
         token.transferFrom(msg.sender, address(this), remaining_tokens);
         address new_referrel;
         new_referrel = _referreladdress;
+        
         for(uint256 i=0; i< 9; i++){
-           address parent_addr = getParent(new_referrel);
-           uint256 reward_amount = RewardPercentage[i] * amount / 100;
-            token.transferFrom(address(this), parent_addr, reward_amount);
             if(new_referrel == owner){
                 break ;
             }
-            else{
-                new_referrel = parent_addr;
-            }
+            
+           address parent_addr = getParent(new_referrel);
+           uint256 reward_amount = RewardPercentage[i] * remaining_tokens / 100;
+           userRewards[parent_addr] = Rewards({totalrewards: reward_amount });
+            token.transferFrom(address(this), parent_addr, reward_amount);
+            
+            
+            new_referrel = parent_addr;
+            
             
 
         }
@@ -237,78 +269,78 @@ function isReferred(address _referrer) public view returns (uint256) {
      * @param _tokenAmount The amount of token.
      * @param _tier The chosen referral tier.
      */
-    function buyTokens(address _referrer, uint256 _tokenAmount, uint256 _tier, uint256 _fees) external {
-        require(
-            _tier == ZeroUSD || _tier == FiftyUSD || _tier == HundreadUSD || _tier == TwoHundreadUSD
-                || _tier == FiveHundreadUSD || _tier == ThousandUSD,
-            "Invalid tier value"
-        );
-        uint256 amount = _tokenAmount * 1 ether;
+   function buyTokens(address _referrer, uint256 _tokenAmount, uint256 _tier, uint256 _fees) external {
+    require(
+        _tier == ZeroUSD || _tier == FiftyUSD || _tier == HundreadUSD || _tier == TwoHundreadUSD
+            || _tier == FiveHundreadUSD || _tier == ThousandUSD,
+        "Invalid tier value"
+    );
+    uint256 amount = _tokenAmount * 1 ether;
+    uint256 fee = _fees * 1 ether;
 
-        if (_referrer == owner && ownerReferred[msg.sender]) {
-           Subscription memory subscription = Subscription(amount, _referrer, _tier);
+    // Check for zero address
+    //require(_referrer != address(0), "Invalid referrer address");
 
-            userSubscription[msg.sender] = subscription;
-        }
+    if (_referrer == owner ) {
+       Subscription memory subscription = Subscription(amount, _referrer, _tier);
 
-        uint256 userTier = isReferred(_referrer);
-        //console.log(userTier);
+        userSubscription[msg.sender] = subscription;
+    }
 
-        if (_tier == userTier) {
-            require(maxTierReferralCounts[_referrer] <= maxRefferalLimit, "Already referred to maximum users.");
-            maxTierReferralCounts[_referrer]++;
-            Subscription memory subscription = Subscription(amount, _referrer, _tier);
-            userSubscription[msg.sender] = subscription;
-        } else {
-            Subscription memory subscription = Subscription(amount, _referrer, _tier);
-            userSubscription[msg.sender] = subscription;
-        } 
+    uint256 userTier = isReferred(_referrer);
+
+    if (_tier == userTier) {
+        require(maxTierReferralCounts[_referrer] <= maxRefferalLimit, "Already referred to maximum users.");
+        maxTierReferralCounts[_referrer]++;
+        Subscription memory subscription = Subscription(amount, _referrer, _tier);
+        userSubscription[msg.sender] = subscription;
+        referrerToChildren[_referrer].child.push(msg.sender);
+    } else {
         
+        // Add the child to the array of children for the referrer
+        Subscription memory subscription = Subscription(amount, _referrer, _tier);
+        userSubscription[msg.sender] = subscription;
+    } 
 
-        //1$ fees charge for upgradation
+    
+    // Calculate fees
+    uint256 self_stakeamount = amount * 15 / 100;
+    uint256 remaing_tokens = amount - self_stakeamount;
+    token.approve(address(this), remaing_tokens);
 
-        uint256 self_stakeamount = amount * 15 / 100;
-        uint256 remaing_tokens = amount - self_stakeamount;
+    // Check if the contract has enough tokens to transfer
+    require(token.balanceOf(address(this)) >= remaing_tokens, "Not enough tokens in the contract");
 
-        //stakeTokens(self_stakeamount, 180 , 0);
+    // Check allowance
+    require(token.allowance(msg.sender, address(this)) >= remaing_tokens, "Not enough allowance");
 
-        // Assuming you have a "token" contract with a "transfer" function
-        token.transferFrom(msg.sender, address(this), remaing_tokens);
-        token.transfer(fees_address, _fees);
-        address new_referrel;
-        new_referrel = _referrer;
-        for(uint256 i=0; i< 9; i++){
-           address parent_addr = getParent(new_referrel);
-           uint256 reward_amount = RewardPercentage[i] * amount / 100;
-            token.transfer(parent_addr, reward_amount);
-            if(new_referrel == owner){
-                break ;
-            }
-            else{
-                new_referrel = parent_addr;
-            }
-            
+    // Perform the transfer
+    require(token.transferFrom(msg.sender, address(this), remaing_tokens), "Token transfer failed");
 
+    // Transfer fees to fees_address
+    require(token.transfer(fees_address, fee), "Fee transfer failed");
+
+    address new_referrel;
+    new_referrel = _referrer;
+    for(uint256 i=0; i< 9; i++){
+        if(new_referrel == owner){
+            break ;
         }
+       address parent_addr = getParent(new_referrel);
+       uint256 reward_amount = RewardPercentage[i] * amount / 100;
+        userRewards[parent_addr] = Rewards({totalrewards: reward_amount });
+       // Check if the contract has enough tokens to transfer
+       require(token.balanceOf(address(this)) >= reward_amount, "Not enough tokens in the contract");
 
-        emit TokenBought(msg.sender, amount, _tier);
+       // Perform the transfer to the parent
+       require(token.transfer(parent_addr, reward_amount), "Reward transfer failed");
+
+        new_referrel = parent_addr;
     }
 
-     /**
-     * @dev Add a new referral to the referrer's list of referrals.
-     * @param _referral The address of the referral.
-     */
-    function addReferral(address _referral) external onlyOwner {
-        require(_referral != address(0), "Invalid referral address");
-        require(_referral != msg.sender, "You cannot refer yourself");
-
-        if (msg.sender == owner) {
-            ownerReferred[_referral] = true;
-            return;
-        }
-
-        emit UserReferred(_referral, msg.sender);
-    }
+    emit TokenBought(msg.sender, amount, _tier);
+}
+   
 
     function showAllParent(address user) external view returns (address[] memory) {
         address[] memory parent = new address[](9); // Initialize an array with a fixed size of 9
@@ -329,5 +361,31 @@ function isReferred(address _referrer) public view returns (uint256) {
     }
 
 
-    
+  function showAllChild(address user) external view returns (address[] memory) {
+    address[] memory children = referrerToChildren[user].child;
+
+    return children;
+}
+
+
+
+    /**
+ * @dev Calculate the total rewards received by a user.
+ * @param userAddress The address of the user.
+ * @return The total rewards received by the user.
+ */
+function totalRewardsReceived(address userAddress) public view returns (uint256) {
+    uint256 totalRewards = 0;
+
+    // Calculate rewards received during DirectStakeJoining
+    StakeSubscription memory directStake = stakeSubscription[userAddress];
+    totalRewards += userRewards[directStake.parent].totalrewards;
+
+    // Calculate rewards received during buyTokens
+    Subscription memory referral = userSubscription[userAddress];
+    totalRewards += userRewards[referral.parent].totalrewards;
+
+    return totalRewards;
+}
+  
 }
