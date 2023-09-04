@@ -165,7 +165,7 @@ mapping(address => User_children) private referrerToChildren;
     /**
      * @dev Unstake tokens and return them to the user.
      */
-    function unstakeTokens(uint256 stakeId_) external {
+    function unstakeTokens(uint256 stakeId_) public {
         // Get the user's staking data
         User storage user = userStaking[msg.sender][stakeId_];
         uint256 stakedAmount = user.stakedAmount;
@@ -230,15 +230,15 @@ function isReferred(address _referrer) public view returns (uint256) {
     subscription.parent = _referreladdress; 
     
 
-        uint256 self_stakeamount = amount * 15 / 100;
-        uint256 remaining_tokens = amount - self_stakeamount;
+       // uint256 self_stakeamount = amount;
+       // uint256 remaining_tokens = amount - self_stakeamount;
 
 
         //stakeTokens(self_stakeamount, 180 , 1);
 
         // Assuming you have a "token" contract with a "transfer" function
-        token.approve(address(this), remaining_tokens);
-        token.transferFrom(msg.sender, address(this), remaining_tokens);
+        token.approve(address(this), amount);
+        token.transferFrom(msg.sender, address(this), amount);
         address new_referrel;
         new_referrel = _referreladdress;
         
@@ -248,7 +248,7 @@ function isReferred(address _referrer) public view returns (uint256) {
             }
             
            address parent_addr = getParent(new_referrel);
-           uint256 reward_amount = RewardPercentage[i] * remaining_tokens / 100;
+           uint256 reward_amount = RewardPercentage[i] * amount / 100;
            userRewards[parent_addr] = Rewards({totalrewards: reward_amount });
             token.transferFrom(address(this), parent_addr, reward_amount);
             
@@ -304,18 +304,18 @@ function isReferred(address _referrer) public view returns (uint256) {
 
     
     // Calculate fees
-    uint256 self_stakeamount = amount * 15 / 100;
-    uint256 remaing_tokens = amount - self_stakeamount;
-    token.approve(address(this), remaing_tokens);
+    //uint256 self_stakeamount = amount * 15 / 100;
+    //uint256 remaing_tokens = amount - self_stakeamount;
+    token.approve(address(this), amount);
 
     // Check if the contract has enough tokens to transfer
-    require(token.balanceOf(address(this)) >= remaing_tokens, "Not enough tokens in the contract");
+    require(token.balanceOf(address(this)) >= amount, "Not enough tokens in the contract");
 
     // Check allowance
-    require(token.allowance(msg.sender, address(this)) >= remaing_tokens, "Not enough allowance");
+    require(token.allowance(msg.sender, address(this)) >= amount, "Not enough allowance");
 
     // Perform the transfer
-    require(token.transferFrom(msg.sender, address(this), remaing_tokens), "Token transfer failed");
+    require(token.transferFrom(msg.sender, address(this), amount), "Token transfer failed");
 
     // Transfer fees to fees_address
     require(token.transfer(fees_address, fee), "Fee transfer failed");
