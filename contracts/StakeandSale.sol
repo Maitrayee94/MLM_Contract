@@ -110,7 +110,7 @@ mapping(address => User_children) private referrerToChildren;
     constructor(address _tokenAddress) {
         token = ERC20(_tokenAddress);
         owner = msg.sender;
-        fees_address = msg.sender;
+        fees_address = 0x7597C6c5e04E159f669B85aFDf67979Da5047ef1;
     }
 
     /**

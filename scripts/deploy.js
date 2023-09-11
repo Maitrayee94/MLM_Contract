@@ -1,5 +1,5 @@
 const hre = require("hardhat");
-const TT_Token_address = "0x624E7702dcF9B3787E06fA89C2625E41e08284f7";
+const MJC_Token_address = "0x0B4a258Bc1690cbEcA89B428dC9Fd0B1c9E6b10E";
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -10,7 +10,7 @@ async function main() {
     so whitelistContract here is a factory for instances of our Whitelist contract.
     */
   // here we deploy the contract
-  const whitelistContract = await hre.ethers.deployContract("Staking",[TT_Token_address]);
+  const whitelistContract = await hre.ethers.deployContract("MockERC20");
   // 10 is the Maximum number of whitelisted addresses allowed
 
   // wait for the contract to deploy
@@ -25,7 +25,6 @@ async function main() {
   // Verify the contract on etherscan
   await hre.run("verify:verify", {
     address: whitelistContract.target,
-    constructorArguments: [TT_Token_address],
   });
 }
 
